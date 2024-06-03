@@ -49,20 +49,4 @@ export default class KeyWallet {
 
     return null;
   }
-
-  encryptWithPublicKey(publicKey: string, message: string) {
-
-  }
-
-  decryptWithPrivateKey(privateKey: string, message: string) {
-
-  }
-
-  signChallenge(message: string, publicKey: string) {
-
-  }
-
-  createChallenge() {
-
-  }
 }
