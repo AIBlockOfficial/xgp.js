@@ -21,6 +21,13 @@ export class Gateway {
     }
 
     /**
+     * Generates a new key pair and returns the public key
+     */
+    async getPublicKey() {
+        return this.keyWallet.providePublicKey();
+    }
+
+    /**
      * Deterministically generates a byte map from the public key
      * 
      * @returns {Uint8Array} - The public key
@@ -51,7 +58,7 @@ export class Gateway {
      * @param publicKey {Uint8Array} - The public key to encrypt the message with
      * @returns {Uint8Array} - The encrypted message
      */
-    transformMessage(message: Uint8Array, publicKey: Uint8Array) {
+    transformData(message: Uint8Array, publicKey: Uint8Array) {
         const byteMap = this.createByteMapFromPublicKey(publicKey);
         return new Uint8Array(message.map(byte => byteMap[byte]));
     }
@@ -82,7 +89,7 @@ export class Gateway {
      * @param publicKey {Uint8Array} - The public key to decrypt the message with
      * @returns {Uint8Array} - The decrypted message
      */
-    reverseTransformMessage(message: Uint8Array, publicKey: Uint8Array) {
+    reverseTransformData(message: Uint8Array, publicKey: Uint8Array) {
         const byteMap = this.createByteMapFromPublicKey(publicKey);
         const inverseByteMap = this.createInverseByteMap(byteMap);
         return new Uint8Array(message.map(byte => inverseByteMap[byte]));
