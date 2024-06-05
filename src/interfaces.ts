@@ -18,3 +18,19 @@ export interface IOnChainShard {
     schema: string;
     data: number[];
 }
+
+//========== GATEWAY INTERFACES ==========//
+
+export enum StorageService {
+    IPFS,
+    S3,
+    AIBLOCK
+}
+
+export interface IGatewayConfig {
+    fileSizeLimit: number | null;
+    maxShards: number | null;
+    maxShardSize: number | null;
+    storageService: StorageService;
+    
+}

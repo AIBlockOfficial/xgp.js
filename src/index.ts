@@ -1,15 +1,28 @@
 import KeyWallet from './wallet';
+import { StorageService, IGatewayConfig } from './interfaces';
 import { shardFile, readdirAsync, statAsync } from './fileHandling';
 const { createHash } = require('sha256-uint8array');
 
+/// Default configuration for the Gateway
+const DEFAULT_CONFIG: IGatewayConfig = {
+    fileSizeLimit: null,
+    maxShards: null,
+    maxShardSize: null,
+    storageService: StorageService.AIBLOCK
+};
+
 export class Gateway {
     private keyWallet: KeyWallet;
+    private config: IGatewayConfig;
 
     /**
      * Creates a new Gateway instance
+     * 
+     * @param config {IGatewayConfig} - The configuration object for the Gateway
      */
-    constructor() {
+    constructor(config: IGatewayConfig | null = null) {
         this.keyWallet = new KeyWallet();
+        this.config = config || DEFAULT_CONFIG;
     }
 
     /**
