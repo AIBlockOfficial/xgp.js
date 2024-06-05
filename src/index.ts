@@ -1,4 +1,7 @@
 import KeyWallet from './wallet';
+import { shardFile, readdirAsync, statAsync } from './fileHandling';
+
+const readdir = require('bluebird').promisify(require('fs').readdir);
 const { createHash } = require('sha256-uint8array');
 
 export class Gateway {
@@ -23,8 +26,8 @@ export class Gateway {
     /**
      * Generates a new key pair and returns the public key
      */
-    async getPublicKey() {
-        return this.keyWallet.providePublicKey();
+    getKeypair() {
+        return this.keyWallet.provideKeypair();
     }
 
     /**
@@ -52,18 +55,6 @@ export class Gateway {
     }
 
     /**
-     * Transforms a message using the public key
-     * 
-     * @param message {Uint8Array} - The message to encrypt
-     * @param publicKey {Uint8Array} - The public key to encrypt the message with
-     * @returns {Uint8Array} - The encrypted message
-     */
-    transformData(message: Uint8Array, publicKey: Uint8Array) {
-        const byteMap = this.createByteMapFromPublicKey(publicKey);
-        return new Uint8Array(message.map(byte => byteMap[byte]));
-    }
-
-    /**
      * Creates the inverse byte map of a given byte map, required for the reversion of data to 
      * its original form
      * 
@@ -83,15 +74,66 @@ export class Gateway {
     }
 
     /**
-     * Reverses the transformation of a message using the public key
+     * Mints a byte map to the chain
      * 
-     * @param message {Uint8Array} - The message to decrypt
-     * @param publicKey {Uint8Array} - The public key to decrypt the message with
-     * @returns {Uint8Array} - The decrypted message
+     * @param byteMap {Array}
      */
-    reverseTransformData(message: Uint8Array, publicKey: Uint8Array) {
-        const byteMap = this.createByteMapFromPublicKey(publicKey);
-        const inverseByteMap = this.createInverseByteMap(byteMap);
-        return new Uint8Array(message.map(byte => inverseByteMap[byte]));
+    async mint(byteMap: number[], publicKey: Uint8Array, amount: number) {
+        await this.keyWallet.mintByteMapToChain(byteMap, publicKey, amount);
+    }
+
+    async push(folderPath: string, publicKey: Uint8Array | null = null) {
+        if (!this.isNode()) {
+            throw new Error('This method is only available in Node.js environments');
+        }
+
+        const path = require('path');
+        const usedPublicKey = publicKey || this.getKeypair()?.publicKey;
+        const byteMap = this.createByteMapFromPublicKey(usedPublicKey);
+        let shardsToPush: Uint8Array[] = [];
+        let prevHash = null;
+
+        try {
+            const files = await readdirAsync(folderPath);
+            console.log("Files", files);
+    
+            for (const file of files) {
+                const filePath = path.join(folderPath, file);
+    
+                const stats = await statAsync(filePath);
+    
+                if (stats.isDirectory()) {
+                    await this.push(filePath);
+                } else if (stats.isFile()) {
+                    const shards = shardFile(filePath, byteMap);
+                    shardsToPush.push(...shards);
+                }
+            }
+    
+            if (usedPublicKey) {
+                for (let i = 0; i < shardsToPush.length; i++) {
+                    const shard = shardsToPush[i];
+    
+                    try {
+                        const resp: any = await this.keyWallet.mintShardToChain(shard, prevHash, i, usedPublicKey, 1);
+
+                        if (resp) {
+                            prevHash = resp.tx_hash;
+                        }
+                    } catch (err) {
+                        console.error("Error minting shard", err);
+                    }
+                }
+            } else {
+                console.log("No public key found. Unable to push to chain");
+                throw new Error('No public key found. Unable to push to chain');
+            }
+        } catch (err) {
+            console.error(`Error processing folder ${folderPath}:`, err);
+        }
+    }
+
+    isNode() {
+        return typeof process !== 'undefined' && process.versions != null && process.versions.node != null;
     }
 }
