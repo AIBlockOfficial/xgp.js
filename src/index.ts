@@ -1,7 +1,5 @@
 import KeyWallet from './wallet';
 import { shardFile, readdirAsync, statAsync } from './fileHandling';
-
-const readdir = require('bluebird').promisify(require('fs').readdir);
 const { createHash } = require('sha256-uint8array');
 
 export class Gateway {
