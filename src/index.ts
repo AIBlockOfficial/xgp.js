@@ -80,6 +80,12 @@ export class Gateway {
         await this.keyWallet.mintByteMapToChain(byteMap, publicKey, amount);
     }
 
+    /**
+     * Pushes a folder containing files to the chain
+     * 
+     * @param filePath {string} - The path to the file to push
+     * @param publicKey {Uint8Array} - The public key to mint the shard to
+     */
     async push(folderPath: string, publicKey: Uint8Array | null = null) {
         if (!this.isNode()) {
             throw new Error('This method is only available in Node.js environments');
@@ -93,8 +99,7 @@ export class Gateway {
 
         try {
             const files = await readdirAsync(folderPath);
-            console.log("Files", files);
-    
+            
             for (const file of files) {
                 const filePath = path.join(folderPath, file);
     
@@ -131,6 +136,7 @@ export class Gateway {
         }
     }
 
+    /** Determines whether the current execution environment is NodeJS or not */
     isNode() {
         return typeof process !== 'undefined' && process.versions != null && process.versions.node != null;
     }
