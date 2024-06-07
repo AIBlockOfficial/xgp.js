@@ -19,6 +19,13 @@ export interface IOnChainShard {
     data: number[];
 }
 
+export interface IOnChainPinataMap {
+    ipfsHash: string;
+    timestamp: string;
+    schema: string;
+    address: string;
+}
+
 export interface IItem {
     amount: number;
     metadata: any;
@@ -26,24 +33,29 @@ export interface IItem {
 }
 
 export enum ESchema {
-    XGP_V1 = 'xgp_v1',              // Generic XGP schema
-    XGP_V1_BM = 'xgp_v1_bm',        // Byte map schema
-    XGP_V1_SHARD = 'xgp_v1_shard'   // Shard schema
+    XGP_V1 = 'xgp_v1',                          // Generic XGP schema
+    XGP_V1_BM = 'xgp_v1_bm',                    // Byte map schema
+    XGP_V1_SHARD = 'xgp_v1_shard',              // Shard schema
+    XGP_V1_IPFS_PINATA = 'xgp_v1_ipfs_pinata'   // Pinata schema for IPFS
 }
 
 //========== GATEWAY INTERFACES ==========//
 
 export enum StorageService {
-    IPFS,
-    S3,
-    AIBLOCK
+    IPFS = 'IPFS',
+    S3 = 'S3',
+    AIBLOCK = 'AIBLOCK'
 }
 
 export interface IGatewayConfig {
     fileSizeLimit: number;
     maxShards: number;
     maxShardSize: number;
-    storageService: StorageService;   
+    storageService: StorageService;
+    pinataSDKKeys?: {
+        apiKey: string;
+        apiSecret: string;
+    };
 }
 
 export interface IGatewayConfigOptional {
@@ -51,4 +63,10 @@ export interface IGatewayConfigOptional {
     maxShards?: number;
     maxShardSize?: number;
     storageService?: StorageService;
+}
+
+export interface IPinataResponse {
+    IpfsHash: string,
+    PinSize: string,
+    Timestamp: string
 }

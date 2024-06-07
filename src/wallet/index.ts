@@ -50,7 +50,7 @@ export default class KeyWallet {
 
     return null;
   }
-  
+
   /**
    * Generates and sets a keypair in the cacheKeys
    */
@@ -184,6 +184,28 @@ export default class KeyWallet {
       byteMap
     };
 
+    const keypair = this.cacheKeys.get(publicKey);
+    if (!keypair) {
+      return {
+        success: false,
+        message: "No secret key found for the public key"
+      }
+    }
+
+    const encryptedKeypair = keypair.encrypted;
+    const createItemResp = await this.wallet.createItems(encryptedKeypair, false, amount, JSON.stringify(metadata));
+
+    return createItemResp.content ? createItemResp.content.createItemResponse : createItemResp;
+  }
+
+  /**
+   * Mint a generic item to the chain
+   * 
+   * @param metadata {any} - The metadata to mint to the chain
+   * @param publicKey {Uint8Array} - The public key to mint the item to
+   * @param amount {number} - The amount of items to mint
+   */
+  async mintToChain(metadata: any, publicKey: Uint8Array, amount: number) {
     const keypair = this.cacheKeys.get(publicKey);
     if (!keypair) {
       return {

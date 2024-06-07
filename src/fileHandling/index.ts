@@ -1,4 +1,5 @@
 const fs = require('fs');
+const { Readable } = require('stream');
 import { ShardFile } from '../interfaces';
 
 /** 
@@ -31,11 +32,25 @@ export function contractFromShards(shards: Uint8Array[], byteMap: number[]): Sha
 }
 
 /**
+ * Creates a readable stream from a Uint8Array.
+ * @param {Uint8Array} uint8Array - The Uint8Array to convert to a stream.
+ * @returns {Readable} - A readable stream.
+ */
+export function uint8ArrayToStream(uint8Array) {
+    return new Readable({
+        read() {
+            this.push(Buffer.from(uint8Array));
+            this.push(null); // Indicates the end of the stream
+        }
+    });
+}
+
+/**
  * Helper function to convert a Shard to a Uint8Array
  * 
  * @param shard {Shard} - The shard to convert
  */
-function toUint8Array(input: Buffer | string): Uint8Array {
+export function toUint8Array(input: Buffer | string): Uint8Array {
     if (typeof input === 'string') {
         const encoder = new TextEncoder();
         return encoder.encode(input);

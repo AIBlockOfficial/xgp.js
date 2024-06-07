@@ -1,7 +1,7 @@
 const fs = require('fs');
 import KeyWallet from './wallet';
 import { StorageService, IGatewayConfig, IGatewayConfigOptional } from './interfaces';
-import { AIBlockStorage } from './storage';
+import { AIBlockStorage, IPFSStorage } from './storage';
 const { createHash } = require('sha256-uint8array');
 
 /// Default configuration for the Gateway
@@ -9,13 +9,14 @@ const DEFAULT_CONFIG: IGatewayConfig = {
     fileSizeLimit: 1024,
     maxShards: 10,
     maxShardSize: 200,
-    storageService: StorageService.AIBLOCK
+    storageService: StorageService.AIBLOCK,
 };
 
 export class Gateway {
     private keyWallet: KeyWallet;
     private config: IGatewayConfig;
     private aiBlockStorage: AIBlockStorage;
+    private ipfsStorage: IPFSStorage;
 
     /**
      * Creates a new Gateway instance
@@ -28,6 +29,7 @@ export class Gateway {
 
         // Storage services
         this.aiBlockStorage = new AIBlockStorage(this.config.maxShardSize, this.keyWallet);
+        this.ipfsStorage = new IPFSStorage(this.config, this.keyWallet);
     }
 
     /**
@@ -36,7 +38,6 @@ export class Gateway {
      * @param seedPhrase {string} - The seed phrase to initialize the wallet
      */
     async init(seedPhrase: string) {
-        console.log("initializing wallet");
         await this.keyWallet.init(seedPhrase);
     }
 
@@ -135,19 +136,27 @@ export class Gateway {
      * @param publicKey {Uint8Array} - The public key to mint the shard to
      */
     async push(data: Buffer, fileId: string, publicKey: Uint8Array | null = null) {
-        const usedPublicKey = publicKey || this.getKeypair()?.publicKey;
+        const usedPublicKey = this.keyWallet.robustlyFetchPublicKey(publicKey)[0];
         const byteMap = this.createByteMapFromPublicKey(usedPublicKey);
 
         console.log("byteMap", byteMap);
+        console.log("storageService", this.config.storageService);
         
         if (usedPublicKey) {
             // Push the file to the chain
             switch (this.config.storageService) {
-                case StorageService.AIBLOCK:
+                case StorageService.AIBLOCK: {
                     await this.aiBlockStorage.push(data, fileId, byteMap, usedPublicKey);
                     break;
-                default:
-                    throw new Error('Unsupported storage service');
+                }
+                case StorageService.IPFS: {
+                    await this.ipfsStorage.push(data, byteMap, usedPublicKey);
+                    break;
+                }
+                default: {
+                    this.shouldBeUnreachable(this.config.storageService);
+                }
+                    
             }
         }
     }
@@ -168,6 +177,8 @@ export class Gateway {
                 throw new Error('Unsupported storage service');
         }
     }
+
+    shouldBeUnreachable(value: string) {}
 
     /** Determines whether the current execution environment is NodeJS or not */
     isNode() {
