@@ -1,28 +1,33 @@
+const fs = require('fs');
 import KeyWallet from './wallet';
-import { StorageService, IGatewayConfig } from './interfaces';
-import { shardFile, readdirAsync, statAsync } from './fileHandling';
+import { StorageService, IGatewayConfig, IGatewayConfigOptional } from './interfaces';
+import { AIBlockStorage } from './storage';
 const { createHash } = require('sha256-uint8array');
 
 /// Default configuration for the Gateway
 const DEFAULT_CONFIG: IGatewayConfig = {
-    fileSizeLimit: null,
-    maxShards: null,
-    maxShardSize: null,
+    fileSizeLimit: 1024,
+    maxShards: 10,
+    maxShardSize: 200,
     storageService: StorageService.AIBLOCK
 };
 
 export class Gateway {
     private keyWallet: KeyWallet;
     private config: IGatewayConfig;
+    private aiBlockStorage: AIBlockStorage;
 
     /**
      * Creates a new Gateway instance
      * 
      * @param config {IGatewayConfig} - The configuration object for the Gateway
      */
-    constructor(config: IGatewayConfig | null = null) {
+    constructor(config: IGatewayConfigOptional | null = null) {
         this.keyWallet = new KeyWallet();
-        this.config = config || DEFAULT_CONFIG;
+        this.config = config ? Object.assign(DEFAULT_CONFIG, config) : DEFAULT_CONFIG;
+
+        // Storage services
+        this.aiBlockStorage = new AIBlockStorage(this.config.maxShardSize, this.keyWallet);
     }
 
     /**
@@ -31,6 +36,7 @@ export class Gateway {
      * @param seedPhrase {string} - The seed phrase to initialize the wallet
      */
     async init(seedPhrase: string) {
+        console.log("initializing wallet");
         await this.keyWallet.init(seedPhrase);
     }
 
@@ -48,20 +54,20 @@ export class Gateway {
      */
     createByteMapFromPublicKey(publicKey) {
         // publicKey is assumed to be a Uint8Array
-    
+
         // Hash the public key using SHA-256
         const hashArray = createHash().update(publicKey).digest();
-    
+
         // Initialize the byte map array
-        let byteMap = Array.from({length: 256}, (_, i) => i);
-    
+        let byteMap = Array.from({ length: 256 }, (_, i) => i);
+
         // Simple Fisher-Yates shuffle algorithm with hash values as pseudo-randomness source
         for (let i = byteMap.length - 1; i > 0; i--) {
             // Use hash bytes cyclically and perform modulo operation to ensure it's within bounds
             let j = hashArray[i % hashArray.length] % (i + 1);
             [byteMap[i], byteMap[j]] = [byteMap[j], byteMap[i]];
         }
-    
+
         return byteMap;
     }
 
@@ -75,12 +81,12 @@ export class Gateway {
     createInverseByteMap(byteMap) {
         // Initialize an array of the same length as the byteMap
         let inverseByteMap = new Array(256);
-    
+
         // Populate the inverse map
         byteMap.forEach((value, index) => {
             inverseByteMap[value] = index;
         });
-    
+
         return inverseByteMap;
     }
 
@@ -89,63 +95,77 @@ export class Gateway {
      * 
      * @param byteMap {Array}
      */
-    async mint(byteMap: number[], publicKey: Uint8Array, amount: number) {
+    async mintByteMap(byteMap: number[], publicKey: Uint8Array, amount: number) {
         await this.keyWallet.mintByteMapToChain(byteMap, publicKey, amount);
     }
 
     /**
-     * Pushes a folder containing files to the chain
-     * 
-     * @param filePath {string} - The path to the file to push
-     * @param publicKey {Uint8Array} - The public key to mint the shard to
+     * Reads a file and returns its contents as a buffer.
+     * @param {string} filePath - The path to the file.
+     * @returns {Promise<Buffer>} - A promise that resolves with the file contents as a buffer.
      */
-    async push(folderPath: string, publicKey: Uint8Array | null = null) {
+    async readFileAsBuffer(filePath: string): Promise<Buffer> {
         if (!this.isNode()) {
             throw new Error('This method is only available in Node.js environments');
         }
 
-        const path = require('path');
+        return new Promise((resolve, reject) => {
+            fs.stat(filePath, (err, stats) => {
+                if (err) {
+                    return reject(`Error checking file: ${err.message}`);
+                }
+                if (!stats.isFile()) {
+                    return reject(`The path provided is not a file: ${filePath}`);
+                }
+                fs.readFile(filePath, (err, data) => {
+                    if (err) {
+                        return reject(`Error reading file: ${err.message}`);
+                    }
+                    resolve(data);
+                });
+            });
+        });
+    }
+
+    /**
+     * Pushes a data file to the chain
+     * 
+     * @param data {Buffer} - The data buffer to push
+     * @param fileId {string} - The ID of the file
+     * @param publicKey {Uint8Array} - The public key to mint the shard to
+     */
+    async push(data: Buffer, fileId: string, publicKey: Uint8Array | null = null) {
         const usedPublicKey = publicKey || this.getKeypair()?.publicKey;
         const byteMap = this.createByteMapFromPublicKey(usedPublicKey);
-        let shardsToPush: Uint8Array[] = [];
-        let prevHash = null;
 
-        try {
-            const files = await readdirAsync(folderPath);
-            
-            for (const file of files) {
-                const filePath = path.join(folderPath, file);
-    
-                const stats = await statAsync(filePath);
-    
-                if (stats.isDirectory()) {
-                    await this.push(filePath);
-                } else if (stats.isFile()) {
-                    const shards = shardFile(filePath, byteMap);
-                    shardsToPush.push(...shards);
-                }
+        console.log("byteMap", byteMap);
+        
+        if (usedPublicKey) {
+            // Push the file to the chain
+            switch (this.config.storageService) {
+                case StorageService.AIBLOCK:
+                    await this.aiBlockStorage.push(data, fileId, byteMap, usedPublicKey);
+                    break;
+                default:
+                    throw new Error('Unsupported storage service');
             }
-    
-            if (usedPublicKey) {
-                for (let i = 0; i < shardsToPush.length; i++) {
-                    const shard = shardsToPush[i];
-    
-                    try {
-                        const resp: any = await this.keyWallet.mintShardToChain(shard, prevHash, i, usedPublicKey, 1);
+        }
+    }
 
-                        if (resp) {
-                            prevHash = resp.tx_hash;
-                        }
-                    } catch (err) {
-                        console.error("Error minting shard", err);
-                    }
-                }
-            } else {
-                console.log("No public key found. Unable to push to chain");
-                throw new Error('No public key found. Unable to push to chain');
-            }
-        } catch (err) {
-            console.error(`Error processing folder ${folderPath}:`, err);
+    /**
+     * Pulls a data file from the chain
+     * 
+     * @param shardId {string} - The ID of the shard to pull
+     * @param publicKey {Uint8Array} - The public key to pull the shard from
+     */
+    async pull(shardId: string, publicKey: Uint8Array | null = null) {
+        const publicKeysToPull = this.keyWallet.robustlyFetchPublicKey(publicKey);
+
+        switch (this.config.storageService) {
+            case StorageService.AIBLOCK:
+                return await this.aiBlockStorage.pull(shardId, this.createByteMapFromPublicKey, this.createInverseByteMap, publicKeysToPull);
+            default:
+                throw new Error('Unsupported storage service');
         }
     }
 

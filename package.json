@@ -66,7 +66,7 @@
   "dependencies": {
     "@2waychain/2wayjs": "^1.0.5",
     "@tatumio/tatum": "^4.2.31",
-    "axios": "1.6.2",
+    "axios": "^1.6.2",
     "bitcore-lib": "^8.25.25",
     "bitcore-mnemonic": "^8.25.25",
     "byte-base64": "^1.1.0",

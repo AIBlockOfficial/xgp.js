@@ -1,5 +1,5 @@
 const fs = require('fs');
-import { Shard } from '../interfaces';
+import { ShardFile } from '../interfaces';
 
 /** 
  * Helper function to split data into shards
@@ -7,17 +7,14 @@ import { Shard } from '../interfaces';
  * @param data {Buffer} - The data to split
  * @param shardSize {number} - The size of each shard
  */
-function splitIntoShards(data: Shard, shardSize: number, byteMap: number[] | null = null): Uint8Array[] {
+export function splitIntoShards(data: ShardFile, shardSize: number, byteMap: number[] | null = null): Uint8Array[] {
     const shards: Uint8Array[] = [];
     for (let i = 0; i < data.length; i += shardSize) {
-        console.log("Processing shard", i, i + shardSize, data.slice(i, i + shardSize));
         const shard = data.slice(i, i + shardSize);
-        console.log("shard in split", shard);
 
         if (byteMap) {
             const convertedShard = toUint8Array(shard);
             const transformedData = transformData(convertedShard, byteMap);
-            console.log("transformedData", transformedData);
             shards.push(transformedData.transformedMessage);
         } else {
             shards.push(toUint8Array(shard));
@@ -25,6 +22,12 @@ function splitIntoShards(data: Shard, shardSize: number, byteMap: number[] | nul
     }
 
     return shards;
+}
+
+export function contractFromShards(shards: Uint8Array[], byteMap: number[]): ShardFile {
+    return Buffer.concat(shards.map(shard => {
+        return Buffer.from(reverseTransformData(shard, byteMap));
+    }));
 }
 
 /**
@@ -77,11 +80,14 @@ function reverseTransformData(message: Uint8Array, inverseByteMap: number[]) {
  */
 export function shardFile(filePath: string, byteMap: number[] | null = null): Uint8Array[] {
     const data = fs.readFileSync(filePath);
-    console.log("data", data);
-
     return splitIntoShards(data, 100, byteMap);
 }
 
+/**
+ * Reads a file and returns its contents as a buffer.
+ * @param {string} filePath - The path to the file.
+ * @returns {Promise<Buffer>} - A promise that resolves with the file contents as a buffer.
+ */
 export function readdirAsync(folderPath: string): Promise<string[]> {
     return new Promise((resolve, reject) => {
         fs.readdir(folderPath, (err, files) => {
@@ -94,6 +100,11 @@ export function readdirAsync(folderPath: string): Promise<string[]> {
     });
 }
 
+/**
+ * Reads a file and returns its contents as a buffer.
+ * @param {string} filePath - The path to the file.
+ * @returns {Promise<Buffer>} - A promise that resolves with the file contents as a buffer.
+ */
 export function statAsync(filePath: string): Promise<any> {
     return new Promise((resolve, reject) => {
         fs.stat(filePath, (err, stats) => {

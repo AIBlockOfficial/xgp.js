@@ -1,6 +1,6 @@
 import { IKeypairEncrypted } from "@2waychain/2wayjs";
 
-export type Shard = Buffer | string;
+export type ShardFile = Buffer | string;
 
 export interface ICacheKeyValue {
     rawSecretKey: Uint8Array;
@@ -13,10 +13,22 @@ export interface IKeypairDecrypted {
 }
 
 export interface IOnChainShard {
-    shardId: number;
+    shardId: string;
     prev: string | null;
     schema: string;
     data: number[];
+}
+
+export interface IItem {
+    amount: number;
+    metadata: any;
+    address: string;
+}
+
+export enum ESchema {
+    XGP_V1 = 'xgp_v1',              // Generic XGP schema
+    XGP_V1_BM = 'xgp_v1_bm',        // Byte map schema
+    XGP_V1_SHARD = 'xgp_v1_shard'   // Shard schema
 }
 
 //========== GATEWAY INTERFACES ==========//
@@ -28,9 +40,15 @@ export enum StorageService {
 }
 
 export interface IGatewayConfig {
-    fileSizeLimit: number | null;
-    maxShards: number | null;
-    maxShardSize: number | null;
-    storageService: StorageService;
-    
+    fileSizeLimit: number;
+    maxShards: number;
+    maxShardSize: number;
+    storageService: StorageService;   
+}
+
+export interface IGatewayConfigOptional {
+    fileSizeLimit?: number;
+    maxShards?: number;
+    maxShardSize?: number;
+    storageService?: StorageService;
 }
