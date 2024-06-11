@@ -67,6 +67,7 @@
     "@2waychain/2wayjs": "^1.0.5",
     "@pinata/sdk": "^2.1.0",
     "@tatumio/tatum": "^4.2.31",
+    "aws-sdk": "^2.1638.0",
     "axios": "^1.6.2",
     "bitcore-lib": "^8.25.25",
     "bitcore-mnemonic": "^8.25.25",

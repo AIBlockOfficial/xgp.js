@@ -31,6 +31,10 @@ export function contractFromShards(shards: Uint8Array[], byteMap: number[]): Sha
     }));
 }
 
+export function bytesToHex(bytes: Uint8Array): string {
+    return bytes.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
+}
+
 /**
  * Creates a readable stream from a Uint8Array.
  * @param {Uint8Array} uint8Array - The Uint8Array to convert to a stream.

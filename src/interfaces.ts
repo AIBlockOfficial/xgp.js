@@ -26,6 +26,13 @@ export interface IOnChainPinataMap {
     address: string;
 }
 
+export interface IOnChainDynamoDBMap {
+    tableName: string;
+    itemName: string;
+    schema: string;
+    address: string;
+}
+
 export interface IItem {
     amount: number;
     metadata: any;
@@ -36,7 +43,8 @@ export enum ESchema {
     XGP_V1 = 'xgp_v1',                          // Generic XGP schema
     XGP_V1_BM = 'xgp_v1_bm',                    // Byte map schema
     XGP_V1_SHARD = 'xgp_v1_shard',              // Shard schema
-    XGP_V1_IPFS_PINATA = 'xgp_v1_ipfs_pinata'   // Pinata schema for IPFS
+    XGP_V1_IPFS_PINATA = 'xgp_v1_ipfs_pinata',  // Pinata schema for IPFS
+    XGP_V1_DYNAMODB = 'xgp_v1_dynamodb'         // DynamoDB schema
 }
 
 //========== GATEWAY INTERFACES ==========//
@@ -44,7 +52,8 @@ export enum ESchema {
 export enum StorageService {
     IPFS = 'IPFS',
     S3 = 'S3',
-    AIBLOCK = 'AIBLOCK'
+    AIBLOCK = 'AIBLOCK',
+    DYNAMODB = 'DYNAMODB'
 }
 
 export interface IGatewayConfig {
@@ -55,6 +64,11 @@ export interface IGatewayConfig {
     pinataSDKKeys?: {
         apiKey: string;
         apiSecret: string;
+    };
+    awsSDKKeys?: {
+        accessKeyId: string;
+        secretAccessKey: string;
+        region: string;
     };
 }
 

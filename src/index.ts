@@ -1,7 +1,7 @@
 const fs = require('fs');
 import KeyWallet from './wallet';
 import { StorageService, IGatewayConfig, IGatewayConfigOptional } from './interfaces';
-import { AIBlockStorage, IPFSStorage } from './storage';
+import { AIBlockStorage, IPFSStorage, DynamoDBStorage } from './storage';
 const { createHash } = require('sha256-uint8array');
 
 /// Default configuration for the Gateway
@@ -17,6 +17,7 @@ export class Gateway {
     private config: IGatewayConfig;
     private aiBlockStorage: AIBlockStorage;
     private ipfsStorage: IPFSStorage;
+    private dynamoDBStorage: DynamoDBStorage;
 
     /**
      * Creates a new Gateway instance
@@ -30,6 +31,7 @@ export class Gateway {
         // Storage services
         this.aiBlockStorage = new AIBlockStorage(this.config.maxShardSize, this.keyWallet);
         this.ipfsStorage = new IPFSStorage(this.config, this.keyWallet);
+        this.dynamoDBStorage = new DynamoDBStorage(this.config, this.keyWallet);
     }
 
     /**
@@ -138,9 +140,6 @@ export class Gateway {
     async push(data: Buffer, fileId: string, publicKey: Uint8Array | null = null) {
         const usedPublicKey = this.keyWallet.robustlyFetchPublicKey(publicKey)[0];
         const byteMap = this.createByteMapFromPublicKey(usedPublicKey);
-
-        console.log("byteMap", byteMap);
-        console.log("storageService", this.config.storageService);
         
         if (usedPublicKey) {
             // Push the file to the chain
@@ -153,6 +152,16 @@ export class Gateway {
                     await this.ipfsStorage.push(data, byteMap, usedPublicKey);
                     break;
                 }
+                case StorageService.DYNAMODB: {
+                    const params = {
+                        TableName: 'default',
+                        Item: {
+                            "data": "default"
+                        }
+                    };
+
+                    await this.dynamoDBStorage.push(data, params, byteMap, usedPublicKey);
+                }
                 default: {
                     this.shouldBeUnreachable(this.config.storageService);
                 }
@@ -164,15 +173,15 @@ export class Gateway {
     /**
      * Pulls a data file from the chain
      * 
-     * @param shardId {string} - The ID of the shard to pull
+     * @param fileId {string} - The ID of the shard to pull
      * @param publicKey {Uint8Array} - The public key to pull the shard from
      */
-    async pull(shardId: string, publicKey: Uint8Array | null = null) {
+    async pull(fileId: string, publicKey: Uint8Array | null = null) {
         const publicKeysToPull = this.keyWallet.robustlyFetchPublicKey(publicKey);
 
         switch (this.config.storageService) {
             case StorageService.AIBLOCK:
-                return await this.aiBlockStorage.pull(shardId, this.createByteMapFromPublicKey, this.createInverseByteMap, publicKeysToPull);
+                return await this.aiBlockStorage.pull(fileId, this.createByteMapFromPublicKey, this.createInverseByteMap, publicKeysToPull);
             default:
                 throw new Error('Unsupported storage service');
         }

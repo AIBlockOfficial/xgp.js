@@ -64,6 +64,12 @@ export class IPFSStorage {
         }
     }
 
+    async pull(ipfsHash: string, publicKey: Uint8Array) {
+        console.log("Pulling data from IPFS");
+
+        
+    }
+
     /** Mints a Pinata map to AIBlock for later retrieval 
      * 
      * @param pinataResp {IPinataResponse} - The response from Pinata
